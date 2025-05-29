@@ -1,9 +1,9 @@
-from day1.hw1.anagram_1 import Anagram
+from anagram_1 import Anagram
 import sys
 
 def main():
     
-    dict_file = "words.txt"
+    dict_file = "../words.txt"
     input_file = sys.argv[1]
     
     finder = Anagram(dict_file)
