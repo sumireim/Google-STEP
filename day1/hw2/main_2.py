@@ -4,7 +4,7 @@ import sys
 
 def main():
     
-    dict_file = "../words.txt"
+    dict_file = "../words.txt" 
     input_file = sys.argv[1]
     output_file = sys.argv[2]
     
