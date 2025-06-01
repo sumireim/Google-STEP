@@ -17,8 +17,10 @@ def calculate_hash(key):
     assert type(key) == str
     # Note: This is not a good hash function. Do you see why?
     hash = 0
-    for i in key:
-        hash += ord(i)
+    base = 31
+    # primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]
+    for i, char in enumerate(key):
+        hash = (hash * base + ord(char)*(i + 1)) & 0xFFFFFFFF
     return hash
 
 
@@ -72,6 +74,7 @@ class HashTable:
         new_item = Item(key, value, self.buckets[bucket_index])
         self.buckets[bucket_index] = new_item
         self.item_count += 1
+        self.re_hash()
         return True
 
     # Get an item from the hash table.
@@ -114,6 +117,7 @@ class HashTable:
                 return True
             prev = item
             item = item.next
+            self.re_hash()         
         return False
 
     # Return the total number of items in the hash table.
@@ -128,6 +132,36 @@ class HashTable:
     def check_size(self):
         assert (self.bucket_size < 100 or
                 self.item_count >= self.bucket_size * 0.3)
+        
+    def re_hash(self):
+        # Rehashing logic to expand or shrink the hash table.
+        if self.bucket_size * 0.70 < self.item_count:
+            # If the bucket size is more than 70% used, expand by doubling the size.(odd size)
+            new_bucket_size = self.bucket_size * 2 + 1
+        elif self.bucket_size * 0.30 > self.item_count:
+            # If the bucket size is less than 30% used, shrink by halving the size.(odd size)
+            new_bucket_size = max(self.bucket_size // 2, 97)
+        else:
+            return
+        
+        used_buckets = self.buckets
+        used_bucket_size = self.bucket_size
+        
+        self.bucket_size = new_bucket_size
+        self.buckets = [None] * new_bucket_size
+        self.item_count = 0
+        
+        for i in range(used_bucket_size):
+            item = used_buckets[i]
+            while item:
+                cur_key = item.key
+                cur_value = item.value
+                item = item.next
+                
+                index = calculate_hash(cur_key)%self.bucket_size
+                bucket = self.buckets[index]
+                self.buckets[index] = Item(cur_key, cur_value, bucket)
+                self.item_count += 1
 
 
 # Test the functional behavior of the hash table.
