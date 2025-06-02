@@ -144,13 +144,16 @@ class HashTable:
         else:
             return
         
+        # store the used buckets
         used_buckets = self.buckets
         used_bucket_size = self.bucket_size
         
+        #initialize the new buckets
         self.bucket_size = new_bucket_size
         self.buckets = [None] * new_bucket_size
         self.item_count = 0
         
+        # Rehash the items from the used buckets to the new buckets.
         for i in range(used_bucket_size):
             item = used_buckets[i]
             while item:
