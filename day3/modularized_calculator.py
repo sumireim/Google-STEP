@@ -57,27 +57,25 @@ def tokenize(line):
 def evaluate(tokens):
     answer = 0
     index = 1
+    # Handle multiplication and division first
     while index < len(tokens):
         if tokens[index]['type'] == 'MULTIPLY':
             if index > 0 and index + 1 < len(tokens):
-                tokens[index-1]['number'] *= tokens[index+1]['number']
-                del tokens[index:index+2]
-                index += 1
+                tokens[index-1]['number'] *= tokens[index+1]['number'] # store the result in index-1
+                del tokens[index:index+2] # remove the MULTIPLY token and the next number
             else:
-                print('Invalid syntax')
+                print('Invalid syntax for multiplication')
                 exit(1)
-            index += 1
         elif tokens[index]['type'] == 'DIVIDE':
             if index > 0 and index + 1 < len(tokens):
-                tokens[index-1]['number'] = tokens[index-1]['number'] / tokens[index+1]['number']
-                del tokens[index:index+2]
-                index += 1
+                tokens[index-1]['number'] = tokens[index-1]['number'] / tokens[index+1]['number'] # store the result in index-1
+                del tokens[index:index+2] # remove the DIVIDE token and the next number
             else:
-                print('Invalid syntax')
+                print('Invalid syntax for division')
                 exit(1)
-            index += 1
         else:
             index += 1
+    # handle addition and subtraction
     index = 1
     tokens.insert(0, {'type': 'PLUS'}) # Insert a dummy '+' token
     while index < len(tokens):
@@ -87,7 +85,7 @@ def evaluate(tokens):
             elif tokens[index - 1]['type'] == 'MINUS':
                 answer -= tokens[index]['number']
             else:
-                print('Invalid syntax')
+                print('Invalid syntax for addition or subtraction')
                 exit(1)
         index += 1
     return answer
@@ -97,7 +95,7 @@ def test(line):
     actual_answer = evaluate(tokens)
     expected_answer = eval(line)
     if abs(actual_answer - expected_answer) < 1e-8:
-        print("PASS! (%s = %f)" % (line, expected_answer))
+        print("PASS! (%s = %g)" % (line, expected_answer)) # change
     else:
         print("FAIL! (%s should be %f but was %f)" % (line, expected_answer, actual_answer))
 
@@ -105,8 +103,22 @@ def test(line):
 # Add more tests to this function :)
 def run_test():
     print("==== Test started! ====")
-    test("1+2")
-    test("1.0+2.1-3")
+    test("1") # only integer
+    test("1.0") # only float
+    test("1+2") # simple addition
+    test("1-2") # simple subtraction
+    test("1*2") # simple multiplication
+    test("1/2") # simple division
+    test("1+2-3") # addition and subtraction
+    test("1+2*3") # addition and multiplication
+    test("1+2/3") # addition and division
+    test("1.0+2.1-3") # float mix addition and subtraction
+    test("1.0+2.1*3") # float mix addition and multiplication
+    test("1.0+2.1/3") # float mix addition and division
+    test("1+2*3-4/5") # integer ixed 
+    test("1.0+2*3/4.0-5.0") # float mixed 
+    test("1*2*3") # continuous multiplication
+    test("1/2/3") # continuous division
     print("==== Test finished! ====\n")
     exit()
 
@@ -117,4 +129,4 @@ while True:
     line = input()
     tokens = tokenize(line)
     answer = evaluate(tokens)
-    print("answer = %f\n" % answer)
+    print("answer = %g\n" % answer) # change
