@@ -33,6 +33,14 @@ def read_divide(line, index):
     token = {'type': 'DIVIDE'}
     return token, index + 1
 
+def read_parentheses(line, index):
+    token = {'type': 'PARENTHESIS'}
+    return token, index + 1
+
+def read_close_parentheses(line, index):
+    token = {'type': 'CLOSEPARENTHESIS'}
+    return token, index + 1
+
 def tokenize(line):
     tokens = []
     index = 0
@@ -47,12 +55,34 @@ def tokenize(line):
             (token, index) = read_multiply(line, index)
         elif line[index] == '/':
             (token, index) = read_divide(line, index)
+        elif line[index] == '(':
+            (token, index) = read_parentheses(line, index)
+        elif line[index] == ')':
+            (token, index) = read_close_parentheses(line, index)
         else:
             print('Invalid character found: ' + line[index])
             exit(1)
         tokens.append(token)
     return tokens
 
+def parentheses_evaluate(tokens):
+    updated_tokens = []
+    index = 0
+    while index < len(tokens):
+        if tokens[index]['type'] == 'PARENTHESIS': # if there is a parenthesis
+            index += 1 
+            temp_tokens = []
+            temp_answer = 0
+            while index < len(tokens) and tokens[index]['type'] != 'CLOSEPARENTHESIS': # until find a closing parenthesis
+                temp_tokens.append(tokens[index])
+                index += 1 
+            temp_answer = evaluate(temp_tokens)
+            updated_tokens.append({'type': 'NUMBER', 'number': temp_answer})
+            index += 1  # Skip the closing parenthesis
+        else:
+            updated_tokens.append(tokens[index])
+            index += 1
+    return updated_tokens
 
 def evaluate(tokens):
     answer = 0
@@ -92,6 +122,7 @@ def evaluate(tokens):
 
 def test(line):
     tokens = tokenize(line)
+    tokens = parentheses_evaluate(tokens)
     actual_answer = evaluate(tokens)
     expected_answer = eval(line)
     if abs(actual_answer - expected_answer) < 1e-8:
@@ -119,6 +150,17 @@ def run_test():
     test("1.0+2*3/4.0-5.0") # float mixed 
     test("1*2*3") # continuous multiplication
     test("1/2/3") # continuous division
+    '''
+    以下括弧ありのケース
+    '''
+    test("(1+2)*3") # parentheses with addition
+    test("(1-2)*3") # parentheses with subtraction
+    test("(1*2)*3") # parentheses with multiplication
+    test("(1/2)*3") # parentheses with division
+    test("1+(2*3)") # parentheses in multiplication
+    test("1-(2/3)") # parentheses in division
+    test("1+(2-3)*4") # parentheses in subtraction 
+    test("1+(2*3-4)/5") # conplex
     print("==== Test finished! ====\n")
     exit()
 
@@ -128,5 +170,6 @@ while True:
     print('> ', end="")
     line = input()
     tokens = tokenize(line)
+    tokens = parentheses_evaluate(tokens)  # Handle parentheses first
     answer = evaluate(tokens)
     print("answer = %g\n" % answer) # change
