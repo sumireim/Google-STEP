@@ -41,12 +41,43 @@ def read_close_parentheses(line, index):
     token = {'type': 'CLOSEPARENTHESIS'}
     return token, index + 1
 
+def read_abs(line, index):
+    if line[index+1] == 'b' and line[index+2] == 's':
+        token = {'type': 'ABS'}
+        return token, index + 3
+    else:
+        print('Invalid character found: ' + line[index])
+        return 0
+
+def read_int(line, index):
+    if line[index+1] == 'n' and line[index+2] == 't':
+        token = {'type': 'INT'}
+        return token, index + 3
+    else:
+        print('Invalid character found: ' + line[index])
+        return 0
+    
+def read_round(line, index):
+    if line[index+1] == 'o' and line[index+2] == 'u' and line[index+3] == 'n' and line[index+4] == 'd':
+        token = {'type': 'ROUND'}
+        return token, index + 5
+    else:
+        print('Invalid character found: ' + line[index])
+        return 0
+
 def tokenize(line):
     tokens = []
     index = 0
     while index < len(line):
         if line[index].isdigit():
             (token, index) = read_number(line, index)
+        elif line[index].isalpha():
+            if line[index] == 'a':
+                (token, index) = read_abs(line, index)
+            if line[index] == 'i':
+                (token, index) = read_int(line, index)
+            if line[index] == 'r':
+                (token, index) = read_round(line, index)
         elif line[index] == '+':
             (token, index) = read_plus(line, index)
         elif line[index] == '-':
@@ -65,6 +96,49 @@ def tokenize(line):
         tokens.append(token)
     return tokens
 
+def function_evaluate(tokens):
+    updated_tokens = []
+    index = 0
+    while index < len(tokens):
+        if tokens[index]['type'] == 'ABS': 
+            if index >= len(tokens) or tokens[index]['type'] != 'PARENTHESIS':
+                print('abs () is required')
+                exit(1)
+            
+            index += 1  # skip '('
+            temp_tokens = []
+            
+            while index < len(tokens) and tokens[index]['type'] != 'CLOSEPARENTHESIS':
+                temp_tokens.append(tokens[index])
+                index += 1
+            
+            if index >= len(tokens):
+                print('Missing closing parenthesis for abs()')
+                exit(1)
+            
+            temp_tokens = parentheses_evaluate(temp_tokens)
+            arg_value = evaluate(temp_tokens)
+            result = abs(arg_value)
+            
+            updated_tokens.append({'type': 'NUMBER', 'number': result})
+            index += 1  # skip ')' 
+    return updated_tokens
+
+def eliminate_parentheses(tokens):
+    if tokens[0]['type'] == 'PASENTHESIS':
+        pass
+    else:
+        return tokens
+    
+def find_parenthesis(tokens):
+    
+    return 0
+
+def find_closing_parenthesis(tokens, start_index):
+
+    return 0
+
+
 def parentheses_evaluate(tokens):
     updated_tokens = []
     index = 0
@@ -78,6 +152,9 @@ def parentheses_evaluate(tokens):
                 index += 1 
             temp_answer = evaluate(temp_tokens)
             updated_tokens.append({'type': 'NUMBER', 'number': temp_answer})
+            if index >= len(tokens):
+                print('Missing closing parenthesis for parenthesis()')
+                exit(1)
             index += 1  # Skip the closing parenthesis
         else:
             updated_tokens.append(tokens[index])
@@ -161,6 +238,7 @@ def run_test():
     test("1-(2/3)") # parentheses in division
     test("1+(2-3)*4") # parentheses in subtraction 
     test("1+(2*3-4)/5") # conplex
+    test("1+(2-3*(5-3))*4") # parentheses in parentheses
     print("==== Test finished! ====\n")
     exit()
 
