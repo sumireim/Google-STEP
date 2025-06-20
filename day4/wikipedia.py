@@ -1,5 +1,6 @@
 import sys
 from collections import deque
+import math
 
 class Wikipedia:
 
@@ -87,35 +88,70 @@ class Wikipedia:
         if start_id is None or goal_id is None:
             print("Start or goal page not found.")
             return None
-        queue = deque([start_id])
-        visited = set([start_id])
+        queue = deque([start_id]) # キューの初期化
+        visited = set([start_id]) # 到達済みのIDを記録
         parent_map = {start_id: None}
         
         while queue:
             current_id = queue.popleft()
-            if current_id == goal_id:
-                path = []
-                node = current_id
-                while node is not None:
-                    path.append(node)
-                    node = parent_map[node]
-                path.reverse()
-                return path
-            
             for neighbor_id in self.links[current_id]:
-                if neighbor_id not in visited:
+                # print(f"Visiting: {self.titles[current_id]} -> {self.titles[neighbor_id]}")
+                if neighbor_id not in visited: # 未訪問のノードの場合
                     visited.add(neighbor_id)
                     parent_map[neighbor_id] = current_id
                     queue.append(neighbor_id)
+                    
+                    if neighbor_id == goal_id: # ゴールに到達した場合
+                        path = []
+                        node = neighbor_id
+                        while node is not None: # 逆順に親ノードをたどる
+                            path.append(node)
+                            node = parent_map[node]
+                        path.reverse()
+                        
+                        title_path = [self.titles[id] for id in path] # タイトルのリストを作成
+                        print("The shortest path is:")
+                        print(" - ".join(title_path)) # タイトルをハイフンで結合して表示
+                        print()
+                        return path
         return None
 
 
     # Homework #2: Calculate the page ranks and print the most popular pages.
-    def find_most_popular_pages(self):
-        #------------------------#
-        # Write your code here!  #
-        #------------------------#
-        pass
+    def find_most_popular_pages(self): # Random Surfer モデル
+        tolerance = 1e-6
+        ranks = {id: 1.0 for id in self.titles} 
+        max_iterations = 100 # 最大反復回数
+
+        for iteration in range(max_iterations): 
+            new_ranks = {id: 0.0 for id in self.titles}  
+            for id in self.titles:
+                out_links = self.links.get(id, [])
+                if out_links:
+                    share_weight = 0.85 * ranks[id] / len(out_links) # 隣接ノードに分配 85%の重み
+                    for target_id in out_links:
+                        new_ranks[target_id] += share_weight
+                    share_all_weight = 0.15 * ranks[id] / len(self.titles) # 全体に分配 15%の重み
+                    for target_id in self.titles:
+                        new_ranks[target_id] += share_all_weight
+                else:
+                    share_all_weight = ranks[id] / len(self.titles) # ページにリンクがない場合は全体に分配
+                    for target_id in self.titles:
+                        new_ranks[target_id] += share_all_weight
+            sum_ranks = sum(new_ranks.values())
+            sum_of_squares = sum((new_ranks[id] - ranks[id])**2 for id in self.titles)
+            diff = math.sqrt(sum_of_squares)
+            if diff < tolerance:
+                break
+            
+            print(sum_ranks)
+            ranks = new_ranks
+        print("\nThe most popular pages are:")
+        top_10 = sorted(ranks.items(), key=lambda x: x[1], reverse=True)[:10]
+        for i, (id, rank) in enumerate(top_10, start=1):
+            print(f"{i}. {self.titles[id]} (PageRank: {rank:.6f})")
+        print()
+        
 
 
     # Homework #3 (optional):
@@ -157,7 +193,8 @@ if __name__ == "__main__":
     # Example
     wikipedia.find_most_linked_pages()
     # Homework #1
-    wikipedia.find_shortest_path("渋谷", "パレートの法則")
+    # wikipedia.find_shortest_path("渋谷", "パレートの法則")
+    wikipedia.find_shortest_path("パリ", "情報工学")
     # Homework #2
     wikipedia.find_most_popular_pages()
     # Homework #3 (optional)
