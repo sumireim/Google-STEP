@@ -2,6 +2,8 @@
 
 import sys
 import math
+import random
+from tqdm import tqdm
 
 from common import print_tour, read_input
 
@@ -45,6 +47,123 @@ def two_opt(cities, tour):
                 break
     return best_tour
 
+class GeneticAlgorithm:
+    """遺伝的アルゴリズムを使用してTSPを解くクラス"""
+    
+    def __init__(self, cities, population_size=100, generations=1000, mutation_rate=0.1, tournament_size=3):
+        self.cities = cities
+        self.n = len(cities)
+        self.population_size = population_size
+        self.generations = generations
+        self.mutation_rate = mutation_rate
+        self.tournament_size = tournament_size
+        
+    def create_random_tour(self):
+        """ランダムな経路を生成"""
+        tour = list(range(self.n))
+        random.shuffle(tour)
+        return tour
+    
+    def tournament_selection(self, population):
+        """トーナメント選択"""
+        tournament = random.sample(population, self.tournament_size)
+        best = min(tournament, key=lambda tour: total_distance(self.cities, tour))
+        return best
+    
+    def order_crossover(self, parent1, parent2):
+        """順序交叉（Order Crossover, OX）"""
+        n = len(parent1)
+        
+        # 交叉点を選択
+        start = random.randint(0, n - 2)
+        end = random.randint(start + 1, n - 1)
+        
+        # 子供を初期化
+        child1 = [-1] * n
+        child2 = [-1] * n
+        
+        # 選択された区間をコピー
+        child1[start:end] = parent1[start:end]
+        child2[start:end] = parent2[start:end]
+        
+        # 残りの都市を埋める
+        def fill_remaining(child, parent_other):
+            remaining = []
+            for city in parent_other:
+                if city not in child:
+                    remaining.append(city)
+            
+            pos = 0
+            for city in remaining:
+                while child[pos] != -1:
+                    pos += 1
+                child[pos] = city
+        
+        fill_remaining(child1, parent2)
+        fill_remaining(child2, parent1)
+        
+        return child1, child2
+    
+    def mutate(self, tour):
+        """突然変異（2-opt風の変異）"""
+        if random.random() < self.mutation_rate:
+            n = len(tour)
+            i = random.randint(0, n - 2)
+            j = random.randint(i + 1, n - 1)
+            tour[i:j+1] = tour[i:j+1][::-1]
+        return tour
+    
+    def solve(self):
+        """遺伝的アルゴリズムでTSPを解く"""
+        # 初期集団を生成
+        population = []
+        
+        # グリーディ法で良い初期個体を作成
+        greedy_tour = greedy(self.cities)
+        population.append(greedy_tour)
+        
+        # 残りをランダムに生成
+        for _ in range(self.population_size - 1):
+            population.append(self.create_random_tour())
+        
+        best_tour = None
+        best_distance = float('inf')
+        
+        # tqdmで進捗表示
+        for generation in tqdm(range(self.generations), desc="Genetic Algorithm"):
+            # 新しい世代を作成
+            new_population = []
+            
+            # エリート選択：最良個体を保持
+            current_best = min(population, key=lambda tour: total_distance(self.cities, tour))
+            current_distance = total_distance(self.cities, current_best)
+            
+            if current_distance < best_distance:
+                best_tour = current_best[:]
+                best_distance = current_distance
+                # 進捗バーに現在の最良距離を表示
+                tqdm.write(f"Generation {generation}: Best distance = {best_distance:.2f}")
+            
+            new_population.append(best_tour[:])
+            
+            # 残りの個体を生成
+            while len(new_population) < self.population_size:
+                parent1 = self.tournament_selection(population)
+                parent2 = self.tournament_selection(population)
+                
+                child1, child2 = self.order_crossover(parent1, parent2)
+                
+                child1 = self.mutate(child1)
+                child2 = self.mutate(child2)
+                
+                new_population.append(child1)
+                if len(new_population) < self.population_size:
+                    new_population.append(child2)
+        
+        population = new_population
+    
+        return best_tour
+
 def greedy(cities):
     N = len(cities)
 
@@ -67,14 +186,25 @@ def greedy(cities):
     return tour
 
 def solve(cities):
+    N = len(cities)
     
-    # Greedy法で初期経路を生成
-    tour = greedy(cities)
-    
-    # 2-opt
+    # 小さな問題に対しては2-optを使用
     if N <= 512:
+        # Greedy法で初期経路を生成
+        tour = greedy(cities)
+        # 2-opt
         tour = two_opt(cities, tour)
-    return tour
+        return tour
+    
+    # 大きな問題に対しては遺伝的アルゴリズムを使用
+    else:
+        # 遺伝的アルゴリズムのパラメータを調整
+        population_size = min(100, N * 2)
+        generations = min(1000, N * 5)
+        
+        ga = GeneticAlgorithm(cities, population_size, generations)
+        tour = ga.solve()
+        return tour
 
 
 if __name__ == '__main__':
