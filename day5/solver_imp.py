@@ -18,11 +18,11 @@ def total_distance(cities, tour):
 
 def two_opt(cities, tour):
     """2-opt改善法"""
-    best_tour = tour[:]
-    best_distance = total_distance(cities, best_tour)
+    best_tour = tour[:] # 現在の最良経路
+    best_distance = total_distance(cities, best_tour) # 最良距離を記録
     
     improved = True
-    while improved:
+    while improved: # 改善がある限り繰り返し
         improved = False
         
         # 全ての辺のペアを試行
@@ -45,7 +45,7 @@ def two_opt(cities, tour):
                 break
     return best_tour
 
-def solve(cities):
+def greedy(cities):
     N = len(cities)
 
     dist = [[0] * N for i in range(N)]
@@ -63,6 +63,13 @@ def solve(cities):
         unvisited_cities.remove(next_city)
         tour.append(next_city)
         current_city = next_city
+    
+    return tour
+
+def solve(cities):
+    
+    # Greedy法で初期経路を生成
+    tour = greedy(cities)
     
     # 2-opt
     if N <= 512:
