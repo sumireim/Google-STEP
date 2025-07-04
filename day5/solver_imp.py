@@ -3,7 +3,6 @@
 import sys
 import math
 import random
-from tqdm import tqdm
 
 from common import print_tour, read_input
 
@@ -37,7 +36,7 @@ def two_opt(cities, tour):
                 new_tour = tour[:i] + tour[i:j+1][::-1] + tour[j+1:]
                 new_distance = total_distance(cities, new_tour)
                 
-                if new_distance < best_distance:
+                if new_distance < best_distance:# 新しい経路がより短い場合
                     best_tour = new_tour
                     best_distance = new_distance
                     improved = True
@@ -48,7 +47,7 @@ def two_opt(cities, tour):
     return best_tour
 
 class GeneticAlgorithm:
-    """遺伝的アルゴリズムを使用してTSPを解くクラス"""
+    """遺伝的アルゴリズム"""
     
     def __init__(self, cities, population_size=100, generations=1000, mutation_rate=0.1, tournament_size=3):
         self.cities = cities
@@ -71,7 +70,7 @@ class GeneticAlgorithm:
         return best
     
     def order_crossover(self, parent1, parent2):
-        """順序交叉（Order Crossover, OX）"""
+        """順序交叉"""
         n = len(parent1)
         
         # 交叉点を選択
@@ -113,24 +112,47 @@ class GeneticAlgorithm:
             tour[i:j+1] = tour[i:j+1][::-1]
         return tour
     
-    def solve(self):
-        """遺伝的アルゴリズムでTSPを解く"""
-        # 初期集団を生成
+    def create_better_initial_population(self):
+        """より良い初期集団を生成"""
         population = []
         
-        # グリーディ法で良い初期個体を作成
+        # グリーディ法ベースの個体（25%）
         greedy_tour = greedy(self.cities)
         population.append(greedy_tour)
         
-        # 残りをランダムに生成
-        for _ in range(self.population_size - 1):
+        # グリーディの変種（異なる開始点）
+        for _ in range(self.population_size // 4 - 1):
+            start_city = random.randint(0, self.n - 1)
+            tour = greedy_from_start(self.cities, start_city)
+            population.append(tour)
+        
+        # 最近傍法の変種（25%）
+        for _ in range(self.population_size // 4):
+            tour = nearest_neighbor_with_random_start(self.cities)
+            population.append(tour)
+        
+        # 2-optで改善したランダム解（25%）
+        for _ in range(self.population_size // 4):
+            tour = self.create_random_tour()
+            tour = two_opt_limited(self.cities, tour, max_iterations=10)
+            population.append(tour)
+        
+        # 完全ランダム（25%）
+        for _ in range(self.population_size - len(population)):
             population.append(self.create_random_tour())
+        
+        return population
+    
+    def solve(self):
+        """遺伝的アルゴリズムでTSPを解く"""
+        # 初期集団を生成
+        population = self.create_better_initial_population()
         
         best_tour = None
         best_distance = float('inf')
         
-        # tqdmで進捗表示
-        for generation in tqdm(range(self.generations), desc="Genetic Algorithm"):
+        
+        for generation in range(self.generations):
             # 新しい世代を作成
             new_population = []
             
@@ -141,8 +163,7 @@ class GeneticAlgorithm:
             if current_distance < best_distance:
                 best_tour = current_best[:]
                 best_distance = current_distance
-                # 進捗バーに現在の最良距離を表示
-                tqdm.write(f"Generation {generation}: Best distance = {best_distance:.2f}")
+
             
             new_population.append(best_tour[:])
             
@@ -160,8 +181,9 @@ class GeneticAlgorithm:
                 if len(new_population) < self.population_size:
                     new_population.append(child2)
         
-        population = new_population
-    
+            population = new_population
+        
+
         return best_tour
 
 def greedy(cities):
@@ -184,6 +206,67 @@ def greedy(cities):
         current_city = next_city
     
     return tour
+
+def greedy_from_start(cities, start_city):
+    """指定した開始都市からのグリーディ法"""
+    N = len(cities)
+    
+    dist = [[0] * N for i in range(N)]
+    for i in range(N):
+        for j in range(i, N):
+            dist[i][j] = dist[j][i] = distance(cities[i], cities[j])
+    
+    current_city = start_city
+    unvisited_cities = set(range(N))
+    unvisited_cities.remove(start_city)
+    tour = [current_city]
+    
+    while unvisited_cities:
+        next_city = min(unvisited_cities,
+                       key=lambda city: dist[current_city][city])
+        unvisited_cities.remove(next_city)
+        tour.append(next_city)
+        current_city = next_city
+    
+    return tour
+
+def nearest_neighbor_with_random_start(cities):
+    """ランダムな開始点での最近傍法"""
+    start_city = random.randint(0, len(cities) - 1)
+    return greedy_from_start(cities, start_city)
+
+def two_opt_limited(cities, tour, max_iterations=10):
+    """制限付き2-opt改善法"""
+    best_tour = tour[:]
+    best_distance = total_distance(cities, best_tour)
+    
+    iteration = 0
+    improved = True
+    
+    while improved and iteration < max_iterations:
+        improved = False
+        iteration += 1
+        
+        # 全ての辺のペアを試行
+        for i in range(len(tour) - 1):
+            for j in range(i + 2, len(tour)):
+                if j == len(tour) - 1 and i == 0:
+                    continue  # 最初と最後の都市は隣接しているのでスキップ
+                
+                # 経路の一部を反転
+                new_tour = tour[:i+1] + tour[i+1:j+1][::-1] + tour[j+1:]
+                new_distance = total_distance(cities, new_tour)
+                
+                if new_distance < best_distance:
+                    best_tour = new_tour
+                    best_distance = new_distance
+                    improved = True
+                    tour = best_tour
+                    break
+            if improved:
+                break
+    
+    return best_tour
 
 def solve(cities):
     N = len(cities)
