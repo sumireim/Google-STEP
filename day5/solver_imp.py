@@ -49,7 +49,7 @@ def two_opt(cities, tour):
 class GeneticAlgorithm:
     """遺伝的アルゴリズム"""
     
-    def __init__(self, cities, population_size=100, generations=1000, mutation_rate=0.1, tournament_size=3):
+    def __init__(self, cities, population_size=100, generations=300, mutation_rate=0.2, tournament_size=3):
         self.cities = cities
         self.n = len(cities)
         self.population_size = population_size
@@ -57,6 +57,70 @@ class GeneticAlgorithm:
         self.mutation_rate = mutation_rate
         self.tournament_size = tournament_size
         
+        # 距離行列を事前計算
+        self.dist_matrix = self._compute_distance_matrix()
+    
+    def _compute_distance_matrix(self):
+        """距離行列を事前計算"""
+        N = self.n
+        dist = [[0] * N for _ in range(N)]
+        for i in range(N):
+            for j in range(i, N):
+                dist[i][j] = dist[j][i] = distance(self.cities[i], self.cities[j])
+        return dist
+    
+    def greedy_from_start(self, start_city):
+        """指定した開始都市からのグリーディ法"""
+        current_city = start_city
+        unvisited_cities = set(range(self.n))
+        unvisited_cities.remove(start_city)
+        tour = [current_city]
+        
+        while unvisited_cities:
+            next_city = min(unvisited_cities,
+                           key=lambda city: self.dist_matrix[current_city][city])
+            unvisited_cities.remove(next_city)
+            tour.append(next_city)
+            current_city = next_city
+        
+        return tour
+    
+    def nearest_neighbor_with_random_start(self):
+        """ランダムな開始点での最近傍法"""
+        start_city = random.randint(0, self.n - 1)
+        return self.greedy_from_start(start_city)
+    
+    def two_opt_limited(self, tour, max_iterations=10):
+        """制限付き2-opt改善法"""
+        best_tour = tour[:]
+        best_distance = total_distance(self.cities, best_tour)
+        
+        iteration = 0
+        improved = True
+        
+        while improved and iteration < max_iterations:
+            improved = False
+            iteration += 1
+            
+            for i in range(len(tour) - 1):
+                for j in range(i + 2, len(tour)):
+                    if j == len(tour) - 1 and i == 0:
+                        continue
+                    
+                    new_tour = tour[:i+1] + tour[i+1:j+1][::-1] + tour[j+1:]
+                    new_distance = total_distance(self.cities, new_tour)
+                    
+                    if new_distance < best_distance:
+                        best_tour = new_tour
+                        best_distance = new_distance
+                        improved = True
+                        tour = best_tour
+                        break
+                if improved:
+                    break
+        
+        return best_tour
+    
     def create_random_tour(self):
         """ランダムな経路を生成"""
         tour = list(range(self.n))
@@ -105,6 +169,7 @@ class GeneticAlgorithm:
     
     def mutate(self, tour):
         """突然変異（2-opt風の変異）"""
+        tour = tour[:]  # コピーを作成
         if random.random() < self.mutation_rate:
             n = len(tour)
             i = random.randint(0, n - 2)
@@ -117,24 +182,24 @@ class GeneticAlgorithm:
         population = []
         
         # グリーディ法ベースの個体（25%）
-        greedy_tour = greedy(self.cities)
+        greedy_tour = self.greedy_from_start(0)  # 都市0から開始
         population.append(greedy_tour)
         
         # グリーディの変種（異なる開始点）
         for _ in range(self.population_size // 4 - 1):
             start_city = random.randint(0, self.n - 1)
-            tour = greedy_from_start(self.cities, start_city)
+            tour = self.greedy_from_start(start_city)
             population.append(tour)
         
         # 最近傍法の変種（25%）
         for _ in range(self.population_size // 4):
-            tour = nearest_neighbor_with_random_start(self.cities)
+            tour = self.nearest_neighbor_with_random_start()
             population.append(tour)
         
         # 2-optで改善したランダム解（25%）
         for _ in range(self.population_size // 4):
             tour = self.create_random_tour()
-            tour = two_opt_limited(self.cities, tour, max_iterations=10)
+            tour = self.two_opt_limited(tour, max_iterations=10)
             population.append(tour)
         
         # 完全ランダム（25%）
@@ -151,19 +216,18 @@ class GeneticAlgorithm:
         best_tour = None
         best_distance = float('inf')
         
-        
         for generation in range(self.generations):
             # 新しい世代を作成
             new_population = []
             
-            # エリート選択：最良個体を保持
             current_best = min(population, key=lambda tour: total_distance(self.cities, tour))
             current_distance = total_distance(self.cities, current_best)
             
             if current_distance < best_distance:
                 best_tour = current_best[:]
                 best_distance = current_distance
-
+                if generation % 100 == 0:
+                    print(f"Generation {generation}: Best distance = {best_distance:.2f}")
             
             new_population.append(best_tour[:])
             
@@ -180,22 +244,21 @@ class GeneticAlgorithm:
                 new_population.append(child1)
                 if len(new_population) < self.population_size:
                     new_population.append(child2)
-        
+            
             population = new_population
         
-
         return best_tour
 
-def greedy(cities):
+def greedy(cities, start_city=0):
     N = len(cities)
-
     dist = [[0] * N for i in range(N)]
     for i in range(N):
         for j in range(i, N):
             dist[i][j] = dist[j][i] = distance(cities[i], cities[j])
 
-    current_city = 0
-    unvisited_cities = set(range(1, N))
+    current_city = start_city
+    unvisited_cities = set(range(N))
+    unvisited_cities.remove(start_city)
     tour = [current_city]
 
     while unvisited_cities:
@@ -207,78 +270,44 @@ def greedy(cities):
     
     return tour
 
-def greedy_from_start(cities, start_city):
-    """指定した開始都市からのグリーディ法"""
-    N = len(cities)
-    
-    dist = [[0] * N for i in range(N)]
-    for i in range(N):
-        for j in range(i, N):
-            dist[i][j] = dist[j][i] = distance(cities[i], cities[j])
-    
-    current_city = start_city
-    unvisited_cities = set(range(N))
-    unvisited_cities.remove(start_city)
-    tour = [current_city]
-    
-    while unvisited_cities:
-        next_city = min(unvisited_cities,
-                       key=lambda city: dist[current_city][city])
-        unvisited_cities.remove(next_city)
-        tour.append(next_city)
-        current_city = next_city
-    
-    return tour
-
-def nearest_neighbor_with_random_start(cities):
-    """ランダムな開始点での最近傍法"""
-    start_city = random.randint(0, len(cities) - 1)
-    return greedy_from_start(cities, start_city)
-
-def two_opt_limited(cities, tour, max_iterations=10):
-    """制限付き2-opt改善法"""
-    best_tour = tour[:]
-    best_distance = total_distance(cities, best_tour)
-    
-    iteration = 0
-    improved = True
-    
-    while improved and iteration < max_iterations:
-        improved = False
-        iteration += 1
-        
-        # 全ての辺のペアを試行
-        for i in range(len(tour) - 1):
-            for j in range(i + 2, len(tour)):
-                if j == len(tour) - 1 and i == 0:
-                    continue  # 最初と最後の都市は隣接しているのでスキップ
-                
-                # 経路の一部を反転
-                new_tour = tour[:i+1] + tour[i+1:j+1][::-1] + tour[j+1:]
-                new_distance = total_distance(cities, new_tour)
-                
-                if new_distance < best_distance:
-                    best_tour = new_tour
-                    best_distance = new_distance
-                    improved = True
-                    tour = best_tour
-                    break
-            if improved:
-                break
-    
-    return best_tour
-
 def solve(cities):
     N = len(cities)
     
-    # 小さな問題に対しては2-optを使用
-    if N <= 512:
-        # Greedy法で初期経路を生成
-        tour = greedy(cities)
-        # 2-opt
-        tour = two_opt(cities, tour)
-        return tour
+    if N <= 64:
+        # 極小問題は全数探索
+        best_tour = None
+        best_distance = float('inf')
+        
+        for _ in range(min(100, N * 2)):
+            tour = list(range(N))
+            random.shuffle(tour)
+            tour = two_opt(cities, tour)
+            distance = total_distance(cities, tour)
+            
+            if distance < best_distance:
+                best_distance = distance
+                best_tour = tour
+        
+        return best_tour
     
+    elif N <= 512:
+        best_tour = None
+        best_distance = float('inf')
+        num_starts = min(20, N)
+        
+        for start_city in range(num_starts):
+            # グリーディ法
+            tour = greedy(cities, start_city)
+            # 2-opt改善
+            tour = two_opt(cities, tour)
+            # 距離を計算
+            distance = total_distance(cities, tour)
+            
+            if distance < best_distance:
+                best_distance = distance
+                best_tour = tour[:]
+        return best_tour
+        
     # 大きな問題に対しては遺伝的アルゴリズムを使用
     else:
         # 遺伝的アルゴリズムのパラメータを調整
@@ -288,7 +317,6 @@ def solve(cities):
         ga = GeneticAlgorithm(cities, population_size, generations)
         tour = ga.solve()
         return tour
-
 
 if __name__ == '__main__':
     assert len(sys.argv) > 1
