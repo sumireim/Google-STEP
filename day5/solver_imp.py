@@ -28,9 +28,8 @@ def two_opt(cities, tour):
         
         # 全ての辺のペアを試行
         for i in range(len(tour) - 1):
-            for j in range(i + 1, len(tour)):
-                if j == i + 1:
-                    continue  # 隣接する辺はスキップ
+            for j in range(i + 2, len(tour)):
+                print(f"Trying edges ({i}, {j})")
                 
                 # 経路の一部を反転
                 new_tour = tour[:i] + tour[i:j+1][::-1] + tour[j+1:]
@@ -273,7 +272,7 @@ def greedy(cities, start_city=0):
 def solve(cities):
     N = len(cities)
     
-    if N <= 64:
+    if N <= 16:
         # 極小問題は全数探索
         best_tour = None
         best_distance = float('inf')
